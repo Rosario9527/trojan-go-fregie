@@ -47,7 +47,7 @@ func (a *Authenticator) updater() {
 		log.Info("buffered data has been written into the database")
 
 		// update memory
-		rows, err := a.db.Query("SELECT password,quota,download,upload FROM users")
+		rows, err := a.db.Query("SELECT password,quota,download,upload,sendlimit,recvlimit FROM users")
 		if err != nil || rows.Err() != nil {
 			log.Error(common.NewError("failed to pull data from the database").Base(err))
 			time.Sleep(a.updateDuration)
@@ -57,7 +57,8 @@ func (a *Authenticator) updater() {
 		for rows.Next() {
 			var hash string
 			var quota, download, upload int64
-			err := rows.Scan(&hash, &quota, &download, &upload)
+			var sendlimit, recvlimit int
+			err := rows.Scan(&hash, &quota, &download, &upload, &sendlimit, &recvlimit)
 			if err != nil {
 				log.Error(common.NewError("failed to obtain data from the query result").Base(err))
 				break
@@ -65,6 +66,7 @@ func (a *Authenticator) updater() {
 			userMap[hash] = true
 			if download+upload < quota || quota < 0 {
 				a.AddUser(hash)
+				a.SetUserSpeedLimit(hash, sendlimit, recvlimit)
 			} else {
 				a.DelUser(hash)
 			}
